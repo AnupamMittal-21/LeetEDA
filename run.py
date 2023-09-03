@@ -3,6 +3,7 @@ import plotly.express as px
 import streamlit as st
 import pickle
 import pandas as pd
+import plotly.graph_objects as go
 import numpy as np
 
 leet_dict = pickle.load(open('leet_dict.pkl','rb'))
@@ -10,17 +11,19 @@ df = pd.DataFrame(leet_dict)
 
 
 df = preprocess.Preprocess_dataframe(df)
+df['Month'] = df['DateOfSubmission'].apply(preprocess.get_month_name)
+df['Year'] = df['DateOfSubmission'].apply(preprocess.get_year)
 st.title("...Jai Shree Ram...")
 
-
 #  Accepted analysis based on years
-df_accepted = preprocess.accepted_questions(df)
+df_accepted = preprocess.accepted_questions(df,'Accepted')
 
 tup_dt = preprocess.get_years(df)
 choice1 = st.selectbox(
     'choose year to see analysis of particular year',
     tup_dt
 )
+
 if choice1=='All Years':
     fig = px.bar(df_accepted, x=df_accepted.Date, y=df_accepted.Total, hover_data=['Easy', 'Medium', 'Hard'],color=df_accepted.Month)
     st.plotly_chart(fig)
@@ -68,10 +71,44 @@ if len(selected_tags)==0:
     st.write("Choose Tags")
 else:
     df_tags = df[df["Tags"].apply(fun)]
-    df_tags = preprocess.accepted_questions(df_tags)
+    df_tags = preprocess.accepted_questions(df_tags,'Accepted')
 
     fig = px.bar(df_tags, x=df_tags['Date'], y=df_tags['Total'],color=df_tags['Month'])
     st.plotly_chart(fig)
+
+
+
+# Improvement Rate
+tup_dt = preprocess.get_years(df)
+choice2 = st.selectbox(
+    'choose year',
+    tup_dt
+)
+
+status_types = preprocess.get_status_types(df)
+
+fig = go.Figure()
+
+if choice2=='All Years':
+    for status in status_types:
+        df_status_acc = preprocess.accepted_questions(df, status)
+        df_imp_acc = preprocess.get_df_summary(df_status_acc)
+        fig.add_trace(go.Scatter(x=df_imp_acc.Month_Year, y=df_imp_acc.Total, mode='lines', name=status))
+    fig.update_layout(title='Improvement Rate',
+                      xaxis_title='Timeline', yaxis_title='Status Count')
+    st.plotly_chart(fig)
+else:
+    new_df_2 = df[df['Year']==choice2]
+    for status in status_types:
+        df_status_acc = preprocess.accepted_questions(new_df_2, status)
+        df_imp_acc = preprocess.get_df_summary(df_status_acc)
+        fig.add_trace(go.Scatter(x=df_imp_acc.Month_Year, y=df_imp_acc.Total, mode='lines', name=status))
+    fig.update_layout(title='Improvement Rate',
+                      xaxis_title='Timeline', yaxis_title='Status Count')
+    st.plotly_chart(fig)
+
+
+
 
 
 

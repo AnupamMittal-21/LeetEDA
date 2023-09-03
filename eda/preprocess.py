@@ -49,11 +49,22 @@ def Preprocess_dataframe(df):
     df['Tags'] = df['Tag_Link'].apply(Create_tags)
     return df
 
-def extract_insights(df):
-    submission_counts_per_day = df.groupby("DateOfSubmission")["Diff_encoded"].sum()
-    submission_counts_per_day_status = df[df['Status']=='Accepted'].groupby("DateOfSubmission")['Diff_encoded'].sum()
-    submission_difficulty_easy = df[df['Difficulty']=='Easy'].groupby("DateOfSubmission")['Diff_encoded'].sum()
-    return submission_counts_per_day,submission_counts_per_day_status,submission_difficulty_easy
+def get_topics(df):
+    topics = []
+    for topic_list in df['Tags']:
+        for topic in topic_list:
+            if topic not in topics:
+                topics.append(topic)
+    return topics
+
+def get_years(df):
+    start_date = df.iloc[-1]['DateOfSubmission']
+    end_date = df.iloc[0]['DateOfSubmission']
+    print(type(start_date))
+    years = ['All Years']
+    for i in range(start_date.year, end_date.year + 1):
+        years.append(i)
+    return years
 
 def get_month_name(s):
     return s.month_name()
@@ -61,8 +72,8 @@ def get_month_name(s):
 def get_year(s):
     return s.year
 
-def accepted_questions(df):
-    a_df = df[df['Status'] == 'Accepted']
+def accepted_questions(df,status):
+    a_df = df[df['Status'] == status]
     easy = []
     medium = []
     hard = []
@@ -92,21 +103,60 @@ def accepted_questions(df):
     df_accepted['Total'] = df_accepted['Easy'] + df_accepted['Medium'] + df_accepted['Hard']
     df_accepted['Month'] = df_accepted['Date'].apply(get_month_name)
     df_accepted['Year'] = df_accepted['Date'].apply(get_year)
+    df_accepted['Month'] = df_accepted['Month'].astype(str)
+    df_accepted['Month_Year'] = df_accepted['Month'].str.cat(df_accepted['Year'].astype(str), sep='-')
     return df_accepted
 
-def get_topics(df):
-    topics = []
-    for topic_list in df['Tags']:
-        for topic in topic_list:
-            if topic not in topics:
-                topics.append(topic)
-    return topics
 
-def get_years(df):
-    start_date = df.iloc[-1]['DateOfSubmission']
-    end_date = df.iloc[0]['DateOfSubmission']
-    print(type(start_date))
-    years = ['All Years']
-    for i in range(start_date.year, end_date.year + 1):
-        years.append(i)
-    return years
+month_dict = {
+    'January': 1,
+    'February': 2,
+    'March': 3,
+    'April': 4,
+    'May': 5,
+    'June': 6,
+    'July': 7,
+    'August': 8,
+    'September': 9,
+    'October': 10,
+    'November': 11,
+    'December': 12,
+}
+
+def to_month_number(s):
+    return month_dict[s]
+
+def get_status_types(df):
+    status_types = df['Status'].unique()
+    return status_types
+
+def get_df_summary(df_status_acc):
+    easy = []
+    medium = []
+    hard = []
+    total = []
+    month = []
+    year = []
+    month_year = []
+    for u, v in df_status_acc.groupby('Month_Year'):
+        mon = v['Month'].unique()[0]
+        mon_year = v['Month_Year'].unique()[0]
+        eas = v['Easy'].sum()
+        med = v['Medium'].sum()
+        har = v['Hard'].sum()
+        tot = v['Total'].sum()
+        yea = v['Year'].unique()[0]
+        easy.append(eas)
+        medium.append(med)
+        hard.append(har)
+        total.append(tot)
+        month.append(mon)
+        year.append(yea)
+        month_year.append(mon_year)
+
+    dict = {'Month': month, 'Year': year, 'Month_Year': month_year, 'Easy': easy, 'Medium': medium, 'Hard': hard,
+            'Total': total}
+    df_imp = pd.DataFrame(dict)
+    df_imp['Month_no'] = df_imp['Month'].apply(to_month_number)
+    df_imp.sort_values(by=['Year', 'Month_no'], inplace=True)
+    return df_imp
