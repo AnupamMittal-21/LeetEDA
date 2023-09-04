@@ -72,6 +72,9 @@ def get_month_name(s):
 def get_year(s):
     return s.year
 
+def get_week(s):
+    return int(s.strftime("%U"))
+
 def accepted_questions(df,status):
     a_df = df[df['Status'] == status]
     easy = []
@@ -105,6 +108,8 @@ def accepted_questions(df,status):
     df_accepted['Year'] = df_accepted['Date'].apply(get_year)
     df_accepted['Month'] = df_accepted['Month'].astype(str)
     df_accepted['Month_Year'] = df_accepted['Month'].str.cat(df_accepted['Year'].astype(str), sep='-')
+    df_accepted['Week'] = df_accepted['Date'].apply(get_week)
+    df_accepted['Week_Year'] = df_accepted['Week'].astype(str) + '-' + df_accepted['Year'].astype(str)
     return df_accepted
 
 
@@ -159,4 +164,42 @@ def get_df_summary(df_status_acc):
     df_imp = pd.DataFrame(dict)
     df_imp['Month_no'] = df_imp['Month'].apply(to_month_number)
     df_imp.sort_values(by=['Year', 'Month_no'], inplace=True)
+    return df_imp
+
+
+def get_df_week_summary(df_status_acc):
+    easy = []
+    medium = []
+    hard = []
+    total = []
+    month = []
+    week_year = []
+    year = []
+    month_year = []
+    week = []
+    for u, v in df_status_acc.groupby('Week_Year'):
+        mon = v['Month'].unique()[0]
+        wee_year = v['Week_Year'].unique()[0]
+        mon_year = v['Month_Year'].unique()[0]
+        eas = v['Easy'].sum()
+        med = v['Medium'].sum()
+        har = v['Hard'].sum()
+        tot = v['Total'].sum()
+        yea = v['Year'].unique()[0]
+        wee = v['Week'].unique()[0]
+        easy.append(eas)
+        medium.append(med)
+        hard.append(har)
+        total.append(tot)
+        month.append(mon)
+        year.append(yea)
+        month_year.append(mon_year)
+        week_year.append(wee_year)
+        week.append(wee)
+
+    dict = {'Month': month, 'Year': year, 'Month_Year': month_year, 'Week_Year': week_year, 'Week': week, 'Easy': easy,
+            'Medium': medium, 'Hard': hard, 'Total': total}
+    df_imp = pd.DataFrame(dict)
+    df_imp['Month_no'] = df_imp['Month'].apply(to_month_number)
+    df_imp.sort_values(by=['Year', 'Week'], inplace=True)
     return df_imp

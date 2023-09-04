@@ -111,6 +111,43 @@ else:
 
 
 
+### Improvement rate per week
+
+tup_dt = preprocess.get_years(df)
+choice2 = st.selectbox(
+    'choose a year',
+    tup_dt
+)
+
+status_types = preprocess.get_status_types(df)
+
+fig = go.Figure()
+
+if choice2=='All Years':
+    for status in status_types:
+        df_status_acc = preprocess.accepted_questions(df, status)
+        df_imp_acc = preprocess.get_df_week_summary(df_status_acc)
+        fig.add_trace(go.Scatter(x=df_imp_acc.Week_Year, y=df_imp_acc.Total, mode='lines', name=status))
+    fig.update_layout(title='Improvement Rate',
+                      xaxis_title='Timeline', yaxis_title='Status Count')
+    st.plotly_chart(fig)
+else:
+    new_df_2 = df[df['Year']==choice2]
+    for status in status_types:
+        df_status_acc = preprocess.accepted_questions(new_df_2, status)
+        df_imp_acc = preprocess.get_df_week_summary(df_status_acc)
+        fig.add_trace(go.Scatter(x=df_imp_acc.Week_Year, y=df_imp_acc.Total, mode='lines', name=status))
+    fig.update_layout(title='Improvement Rate',
+                      xaxis_title='Timeline', yaxis_title='Status Count')
+    st.plotly_chart(fig)
+
+
+
+
+
+
+
+
 
 # UI components cheat sheet
 
