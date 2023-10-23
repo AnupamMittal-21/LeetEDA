@@ -183,3 +183,12 @@ for i,j in enumerate(tag_list):
         name = tag_list[i],
     ))
 st.plotly_chart(fig)
+
+
+least_df,most_df = preprocess.get_dp_df(df)
+
+st.write("Model to show somw weak topic that you should focus on...")
+st.write("These are topics in which you have less practice")
+st.write(least_df)
+st.write("These are topics in which you have good practice but need to do more")
+st.write(most_df)
