@@ -286,12 +286,8 @@ def get_dp_df(df):
     most_df = pd.DataFrame()
     most_df = most_to_do[most_to_do['Category'] == 'a']
     for i in list(most):
-        #     i = 'Math'
+        # ...
         cat = not_done[not_done['Category'] == i]
-        #     Apply prob of getting accepted
-        #  Question is how to pick the question from large data set, one way is to give control to user, ask him to chooose random, sort by easy. medium hard, by prob of getting accepted
-        # like this , this is a lot to do work
-        # let me take case of random until i came up with accepting probabiltiy.
         new_ = cat.sample(3)
         most_df = pd.concat([most_df, new_], axis=0)
 
