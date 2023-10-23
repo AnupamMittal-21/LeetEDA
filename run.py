@@ -1,19 +1,19 @@
-from eda import  preprocess
+from eda import preprocess
 import plotly.express as px
 import streamlit as st
 import pickle
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
-
+st.set_page_config (layout="wide")
 leet_dict = pickle.load(open('leet_dict.pkl','rb'))
 df = pd.DataFrame(leet_dict)
 
-
+st.write(df.head(8))
 df = preprocess.Preprocess_dataframe(df)
-df['Month'] = df['DateOfSubmission'].apply(preprocess.get_month_name)
-df['Year'] = df['DateOfSubmission'].apply(preprocess.get_year)
-st.title("...Jai Shree Ram...")
+
+
+st.title("LeetCode Analysis")
 
 #  Accepted analysis based on years
 df_accepted = preprocess.accepted_questions(df,'Accepted')
@@ -67,6 +67,7 @@ def fun(tag_list):
         if tag in req_tags:
             return True
     return False
+
 if len(selected_tags)==0:
     st.write("Choose Tags")
 else:
@@ -141,64 +142,44 @@ else:
                       xaxis_title='Timeline', yaxis_title='Status Count')
     st.plotly_chart(fig)
 
+# Plot of monthwise status of questions.
+
+name = "IDK"
+tup_dt = preprocess.get_years(df)
+choice3 = st.selectbox(
+    'choose a year',
+    (tup_dt), key=f"{name}",
+)
+if choice3=='All Years':
+    fig = px.bar(df, x='Month', y='Diff_encoded', color='Status', title='Month-wise count of questions status.')
+    st.plotly_chart(fig)
+else :
+    df_2023 = df[df['Year']==choice3]
+    fig = px.bar(df_2023, x='Month', y='Diff_encoded', color='Status', title='Month-wise count of questions status.')
+    st.plotly_chart(fig)
 
 
 
+# HeatMap and other plot for each category representation.
+x_,for_each = preprocess.get_per_date(df)
+data = for_each
+
+# Create the heatmap trace
+heatmap_trace = go.Heatmap(z=data,x = x_, y = tag_list, colorscale='Viridis')
+
+# Create a figure with the trace and layout
+fig = go.Figure(data=[heatmap_trace])
+st.plotly_chart(fig)
 
 
-
-
-
-# UI components cheat sheet
-
-# x = st.slider('x')  # 👈 this is a widget
-# st.write(x, 'squared is', x * x)
-#
-# st.text_input("Your name", key="name")
-#
-# # You can access the value at any point with:
-# st.session_state.name
-# if st.checkbox('Show dataframe'):
-#     chart_data = pd.DataFrame(
-#        np.random.randn(20, 3),
-#        columns=['a', 'b', 'c'])
-#
-#     chart_data
-#
-#
-# df = pd.DataFrame({
-#     'first column': [1, 2, 3, 4],
-#     'second column': [10, 20, 30, 40]
-#     })
-#
-# option = st.selectbox(
-#     'Which number do you like best?',
-#      df['first column'])
-#
-# 'You selected: ', option
-#
-# # Add a selectbox to the sidebar:
-# add_selectbox = st.sidebar.selectbox(
-#     'How would you like to be contacted?',
-#     ('Email', 'Home phone', 'Mobile phone')
-# )
-#
-# # Add a slider to the sidebar:
-# add_slider = st.sidebar.slider(
-#     'Select a range of values',
-#     0.0, 100.0, (25.0, 75.0)
-# )
-#
-#
-#
-# left_column, right_column = st.columns(2)
-# # You can use a column just like st.sidebar:
-# left_column.button('Press me!')
-#
-# # Or even better, call Streamlit functions inside a "with" block:
-# with right_column:
-#     chosen = st.radio(
-#         'Sorting hat',
-#         ("Gryffindor", "Ravenclaw", "Hufflepuff", "Slytherin"))
-#     st.write(f"You are in {chosen} house!")
-
+fig = go.Figure()
+for i,j in enumerate(tag_list):
+    a = [i] * len(x_)
+    fig.add_trace(go.Scatter(
+        x=x_,
+        y=a,
+        mode='markers',
+        marker = {'size': [size * 2 for size in for_each[i]]},
+        name = tag_list[i],
+    ))
+st.plotly_chart(fig)

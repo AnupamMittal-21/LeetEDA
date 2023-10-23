@@ -47,6 +47,8 @@ def Preprocess_dataframe(df):
     df['Acceptance'] = df['Acceptance'].astype('float64')
     df['ID'] = df['ID'].astype('int64')
     df['Tags'] = df['Tag_Link'].apply(Create_tags)
+    df['Month'] = df['DateOfSubmission'].apply(get_month_name)
+    df['Year'] = df['DateOfSubmission'].apply(get_year)
     return df
 
 def get_topics(df):
@@ -203,3 +205,31 @@ def get_df_week_summary(df_status_acc):
     df_imp['Month_no'] = df_imp['Month'].apply(to_month_number)
     df_imp.sort_values(by=['Year', 'Week'], inplace=True)
     return df_imp
+
+def get_per_date(df):
+    tag_list = get_topics(df)
+    cols = ['Status', 'DateOfSubmission', 'Difficulty', 'Tags', 'Month', 'Year']
+    plot_df = df[cols]
+    date_df = plot_df.groupby('DateOfSubmission')
+    ans = []
+    x_ = []
+    for i, j in date_df:
+        print(j)
+        x_.append(i)
+        dict = {}
+        for i in tag_list:
+            dict[i] = 0
+        for x in j['Tags']:
+            for k in x:
+                dict[k] = dict[k] + 1
+        ans.append(dict)
+
+    for_each = []
+    for topic in tag_list:
+        tp = []
+        for day, y in enumerate(x_):
+            tp.append(ans[day][topic])
+        for_each.append(tp)
+    return x_,for_each
+
+
