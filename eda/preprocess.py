@@ -1,119 +1,69 @@
+import pandas as pd
+import pickle
 from datetime import date
 from datetime import datetime
-import pandas as pd
 
-def Date_Conversion(s1):
-    if 'hours' in s1:
-        return date.today()
-    else:
-        date_str_de_DE = s1
-        datetime_object = datetime.strptime(date_str_de_DE, '%b %d, %Y')
-        return datetime_object.date()
 
-def Remove_K(s1):
-    if 'K' in s1:
-        return s1.replace('K','')
-    if '%' in s1:
-        return s1.replace('%','')
-    else:
-        a = float(s1)
-    return str(a/1000)
+def Preprocess_dataframe():
+    dict_ = pickle.load(open('eda/Anupam.pkl', 'rb'))
+    df = pd.DataFrame(dict_)
 
-def difficulty_encoding(s):
-    if s == 'Hard':
-        return 3
-    elif s == 'Medium':
-        return 2
-    else:
-        return 1
-
-def Create_tags(column):
-    tags_list = []
-    for tag in column:
-        a = tag.split('https://leetcode.com/tag/')
-        tags_list.append(a[1].split('/')[0])
-    return tags_list
-
-def Preprocess_dataframe(df):
     df['DateOfSubmission'] = df['DateOfSubmission'].apply(Date_Conversion)
-    df['Likes'] = df['Likes'].apply(Remove_K)
-    df['Dislikes'] = df['Dislikes'].apply(Remove_K)
-    df['Acceptance'] = df['Acceptance'].apply(Remove_K)
     df['Diff_encoded'] = df['Difficulty'].apply(difficulty_encoding)
-
     df['DateOfSubmission'] = pd.to_datetime(df['DateOfSubmission'])
-    df['Likes'] = df['Likes'].astype('float64')
-    df['Dislikes'] = df['Dislikes'].astype('float64')
-    df['Acceptance'] = df['Acceptance'].astype('float64')
     df['ID'] = df['ID'].astype('int64')
-    df['Tags'] = df['Tag_Link'].apply(Create_tags)
     df['Month'] = df['DateOfSubmission'].apply(get_month_name)
     df['Year'] = df['DateOfSubmission'].apply(get_year)
-    df['QName'] = df['Name'].apply(name)
+    df['Month_Year'] = df['Month'] + '-' + df['Year'].astype(str)
+    df['Week'] = df['DateOfSubmission'].apply(get_week)
+    df['Week_Year'] = df['Week'].astype(str) + '-' + df['Year'].astype(str)
+    df['QName'] = df['Name'].apply(name_)
+
     return df
 
-def get_topics(df):
-    topics = []
-    for topic_list in df['Tags']:
-        for topic in topic_list:
-            if topic not in topics:
-                topics.append(topic)
-    return topics
 
-def get_years(df):
-    start_date = df.iloc[-1]['DateOfSubmission']
-    end_date = df.iloc[0]['DateOfSubmission']
-    print(type(start_date))
-    years = ['All Years']
-    for i in range(start_date.year, end_date.year + 1):
-        years.append(i)
-    return years
+def process_dp(df, Threshold=30.0):
+    dp_df = pd.read_csv('eda/dp_leet.csv')
+    dp_df['QName'] = dp_df['Question'].apply(get_name)
+    a = dp_df['Category'].value_counts()
+    not_done = dp_df[~dp_df['QName'].isin(df['QName'])]
+    done = dp_df[dp_df['QName'].isin(df['QName'])]
+    b = done['Category'].value_counts()
 
-def get_month_name(s):
-    return s.month_name()
+    dfn = pd.concat([a, b], axis=1)
+    dfn = dfn.reset_index()
+    dfn.columns = ['Category', 'All', 'Done']
+    dfn['Done'] = dfn['Done'].fillna(0).astype(int)
+    dfn['Percent'] = (dfn['Done'] / dfn['All']) * 100
 
-def get_year(s):
-    return s.year
+    dfn_least_done = dfn.sort_values(by='Percent')
+    len_ = dfn.shape[0]
+    head_ = min(len_, 5)
+    least = dfn_least_done.head(head_)['Category']
 
-def get_week(s):
-    return int(s.strftime("%U"))
+    dfn_most_done = dfn.sort_values(by='Percent', ascending=False)
+    dfn_most_done = dfn_most_done[dfn_most_done['Percent'] < Threshold]
+    most = dfn_most_done.head()['Category']
 
-def accepted_questions(df,status):
-    a_df = df[df['Status'] == status]
-    easy = []
-    medium = []
-    hard = []
-    dos_ = a_df.groupby('DateOfSubmission')
-    dates = []
-    for x, y in dos_:
-        dates.append(x)
-        dos = dos_.get_group(x)
-        try:
-            eas = dos.groupby('Difficulty').get_group('Easy')['Status'].count()
-        except:
-            eas = 0
-        try:
-            med = dos.groupby('Difficulty').get_group('Medium')['Status'].count()
-        except:
-            med = 0
-        try:
-            har = dos.groupby('Difficulty').get_group('Hard')['Status'].count()
-        except:
-            har = 0
-        easy.append(eas)
-        medium.append(med)
-        hard.append(har)
+    least_to_do = not_done[not_done['Category'].isin(list(least))]
+    most_to_do = not_done[not_done['Category'].isin(list(most))]
 
-    dict = {'Date': dates, 'Easy': easy, 'Medium': medium, 'Hard': hard}
-    df_accepted = pd.DataFrame(dict)
-    df_accepted['Total'] = df_accepted['Easy'] + df_accepted['Medium'] + df_accepted['Hard']
-    df_accepted['Month'] = df_accepted['Date'].apply(get_month_name)
-    df_accepted['Year'] = df_accepted['Date'].apply(get_year)
-    df_accepted['Month'] = df_accepted['Month'].astype(str)
-    df_accepted['Month_Year'] = df_accepted['Month'].str.cat(df_accepted['Year'].astype(str), sep='-')
-    df_accepted['Week'] = df_accepted['Date'].apply(get_week)
-    df_accepted['Week_Year'] = df_accepted['Week'].astype(str) + '-' + df_accepted['Year'].astype(str)
-    return df_accepted
+    ans_least = pd.DataFrame()
+    ans_least = least_to_do[least_to_do['Category'] == 'a']
+    for i in list(least):
+        #     i = 'Math'
+        cat = not_done[not_done['Category'] == i]
+        new_ = cat.sample(3)
+        ans_least = pd.concat([ans_least, new_], axis=0)
+
+    ans_most = pd.DataFrame()
+    ans_most = most_to_do[most_to_do['Category'] == 'a']
+    for i in list(most):
+        cat = not_done[not_done['Category'] == i]
+        new_ = cat.sample(3)
+        ans_most = pd.concat([ans_most, new_], axis=0)
+
+    return a, b, ans_least, ans_most
 
 
 month_dict = {
@@ -131,12 +81,26 @@ month_dict = {
     'December': 12,
 }
 
+
+def name_(s):
+    s = s.lower()
+    s = s.replace(' ', '-')
+    return s
+
+
+def get_name(s):
+    t2 = s.split('https://leetcode.com/problems/')[1]
+    t = t2.split('/')[0]
+    return t
+
+
+def get_week(s):
+    return int(s.strftime("%U"))
+
+
 def to_month_number(s):
     return month_dict[s]
 
-def get_status_types(df):
-    status_types = df['Status'].unique()
-    return status_types
 
 def get_df_summary(df_status_acc):
     easy = []
@@ -168,6 +132,86 @@ def get_df_summary(df_status_acc):
     df_imp['Month_no'] = df_imp['Month'].apply(to_month_number)
     df_imp.sort_values(by=['Year', 'Month_no'], inplace=True)
     return df_imp
+
+
+def status_question(df, status='Accepted'):
+    a_df = df[df['Status'] == status]
+    easy = []
+    medium = []
+    hard = []
+    dos_ = a_df.groupby('DateOfSubmission')
+    dates = []
+    for x, y in dos_:
+        dates.append(x)
+        dos = dos_.get_group(x)
+        try:
+            eas = dos.groupby('Difficulty').get_group('Easy')['Status'].count()
+        except:
+            eas = 0
+        try:
+            med = dos.groupby('Difficulty').get_group('Medium')['Status'].count()
+        except:
+            med = 0
+        try:
+            har = dos.groupby('Difficulty').get_group('Hard')['Status'].count()
+        except:
+            har = 0
+        easy.append(eas)
+        medium.append(med)
+        hard.append(har)
+
+    dict = {'Date': dates, 'Easy': easy, 'Medium': medium, 'Hard': hard}
+    df_accepted = pd.DataFrame(dict)
+    df_accepted['Total'] = df_accepted['Easy'] + df_accepted['Medium'] + df_accepted['Hard']
+    df_accepted['Month'] = df_accepted['Date'].apply(get_month_name)
+    df_accepted['Year'] = df_accepted['Date'].apply(get_year)
+    df_accepted['Month_Year'] = df_accepted['Month'] + '-' + df_accepted['Year'].astype(str)
+    df_accepted['Week'] = df_accepted['Date'].apply(get_week)
+    df_accepted['Week_Year'] = df_accepted['Week'].astype(str) + '-' + df_accepted['Year'].astype(str)
+    return df_accepted
+
+
+def Date_Conversion(s):
+    if 'hours' in s:
+        return date.today()
+    else:
+        date_str_de_DE = s
+        datetime_object = datetime.strptime(date_str_de_DE, '%b %d, %Y')
+        return datetime_object.date()
+
+
+def difficulty_encoding(s):
+    if s == 'Hard':
+        return 3
+    elif s == 'Medium':
+        return 2
+    else:
+        return 1
+
+
+def get_month_name(s):
+    return s.month_name()
+
+
+def get_year(s):
+    return s.year
+
+
+def get_topics(df):
+    topics = []
+    for topic_list in df['Tags']:
+        for topic in topic_list:
+            if topic not in topics:
+                topics.append(topic)
+    return topics
+
+
+def get_years(df):
+    a = ['All Years']
+    b = df['Year'].value_counts().index
+    for i in b:
+        a.append(i)
+    return a
 
 
 def get_df_week_summary(df_status_acc):
@@ -207,6 +251,41 @@ def get_df_week_summary(df_status_acc):
     df_imp.sort_values(by=['Year', 'Week'], inplace=True)
     return df_imp
 
+
+def accepted_questions(df, status='Accepted'):
+    a_df = df[df['Status'] == status]
+    easy = []
+    medium = []
+    hard = []
+    dos_ = a_df.groupby('DateOfSubmission')
+    dates = []
+    for x, y in dos_:
+        dates.append(x)
+        dos = dos_.get_group(x)
+        try:
+            eas = dos.groupby('Difficulty').get_group('Easy')['Status'].count()
+        except:
+            eas = 0
+        try:
+            med = dos.groupby('Difficulty').get_group('Medium')['Status'].count()
+        except:
+            med = 0
+        try:
+            har = dos.groupby('Difficulty').get_group('Hard')['Status'].count()
+        except:
+            har = 0
+        easy.append(eas)
+        medium.append(med)
+        hard.append(har)
+
+    dict = {'Date': dates, 'Easy': easy, 'Medium': medium, 'Hard': hard}
+    df_accepted = pd.DataFrame(dict)
+    df_accepted['Total'] = df_accepted['Easy'] + df_accepted['Medium'] + df_accepted['Hard']
+    df_accepted['Month'] = df_accepted['Date'].apply(get_month_name)
+    df_accepted['Year'] = df_accepted['Date'].apply(get_year)
+    return df_accepted
+
+
 def get_per_date(df):
     tag_list = get_topics(df)
     cols = ['Status', 'DateOfSubmission', 'Difficulty', 'Tags', 'Month', 'Year']
@@ -215,7 +294,6 @@ def get_per_date(df):
     ans = []
     x_ = []
     for i, j in date_df:
-        print(j)
         x_.append(i)
         dict = {}
         for i in tag_list:
@@ -231,66 +309,4 @@ def get_per_date(df):
         for day, y in enumerate(x_):
             tp.append(ans[day][topic])
         for_each.append(tp)
-    return x_,for_each
-
-
-def get_name(s):
-    t2 = s.split('https://leetcode.com/problems/')[1]
-    t = t2.split('/')[0]
-    return t
-
-def name(s):
-    s = s.lower()
-    s = s.replace(' ','-')
-    return s
-def get_dp_df(df):
-    dp_df = pd.read_csv('dp_leet.csv')
-    dp_df['QName'] = dp_df['Question'].apply(get_name)
-    a = dp_df['Category'].value_counts()
-
-    not_done = dp_df[~dp_df['QName'].isin(df['QName'])]
-    done = dp_df[dp_df['QName'].isin(df['QName'])]
-    b = done['Category'].value_counts()
-
-    dfn = pd.concat([a, b], axis=1)
-    dfn = dfn.reset_index()
-    # Display the resulting DataFrame
-    dfn.columns = ['Category', 'All', 'Done']
-    dfn['Done'] = dfn['Done'].fillna(0).astype(int)
-    dfn['Percent'] = (dfn['Done'] / dfn['All']) * 100
-    dfn_least_done = dfn.sort_values(by='Percent')
-    least = dfn_least_done.head(5)['Category']
-    # Means ye to bhut hi kam kar rakhe h
-    dfn_most_done = dfn.sort_values(by='Percent', ascending=False)
-    Threshold = 30.0
-    dfn_most_done = dfn_most_done[dfn_most_done['Percent'] < Threshold]
-    most = dfn_most_done.head()['Category']
-    # Most means you have done it but not up to the mark (< than threshold value)
-    least_to_do = not_done[not_done['Category'].isin(list(least))]
-    most_to_do = not_done[not_done['Category'].isin(list(most))]
-
-    least_df = pd.DataFrame()
-    least_df = least_to_do[least_to_do['Category'] == 'a']
-    for i in list(least):
-        #     i = 'Math'
-        cat = not_done[not_done['Category'] == i]
-        #     Apply prob of getting accepted
-        #  Question is how to pick the question from large data set, one way is to give control to user, ask him to chooose random, sort by easy. medium hard, by prob of getting accepted
-        # like this , this is a lot to do work
-        # let me take case of random until i came up with accepting probabiltiy.
-        new_ = cat.sample(3)
-        least_df = pd.concat([least_df, new_], axis=0)
-        print(cat.shape)
-
-    threshold_percent = 30
-    most_df = pd.DataFrame()
-    most_df = most_to_do[most_to_do['Category'] == 'a']
-    for i in list(most):
-        # ...
-        cat = not_done[not_done['Category'] == i]
-        new_ = cat.sample(3)
-        most_df = pd.concat([most_df, new_], axis=0)
-
-    return least_df, most_df
-
-
+    return x_, for_each
